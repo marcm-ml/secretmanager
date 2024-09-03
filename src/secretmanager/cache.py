@@ -1,9 +1,9 @@
-import hashlib
+import atexit
 import logging
+import sqlite3
 import threading
 import time
-from collections import OrderedDict
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -29,52 +29,104 @@ class Singleton(type):
 
 
 class LRUCache(metaclass=Singleton):
-    def __init__(self, max_size: int, expires_in: int):
+    def __init__(self, db_path: str, max_size: int, expires_in: int):
         self.lock = threading.Lock()
-        self.cache: OrderedDict[str, CacheEntry[str | None]] = OrderedDict()
+        self.db_path = db_path
         self.max_cache_size = max_size
         self.refresh_period = expires_in
+        self._initialized = False
+        self._closed = True
 
-    def _hash_key(self, item: Any):
-        """Generate a unique hash for the object based on its attributes."""
-        return int(hashlib.sha256(str(hash(item)).encode()).hexdigest(), 16)
+        # Initialize SQLite DB
+        if self._closed:
+            self.conn = sqlite3.connect(self.db_path)
+        self._closed = False
+        if not self._initialized:
+            atexit.register(self.close)
+        self._initialize_db()
 
-    def get(self, key: str):
+    def _initialize_db(self):
+        """Create cache table if it doesn't exist."""
+        if not self._initialized:
+            self.conn.execute("""
+                CREATE TABLE IF NOT EXISTS cache (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    key TEXT,
+                    value BLOB NULL,
+                    timestamp REAL
+                )
+            """)
+            self.conn.execute("""
+                CREATE INDEX IF NOT EXISTS timestamp_idx ON cache (timestamp)
+            """)
+            self.conn.commit()
+            self._initialized = True
+
+    def _get_cache_size(self) -> int:
+        """Get the current number of items in the cache."""
+        cursor = self.conn.execute("SELECT COUNT(*) FROM cache")
+        return cursor.fetchone()[0]
+
+    def get(self, key: str) -> str | None:
         with self.lock:
             current_time = time.time()
 
-            if key in self.cache:
-                entry = self.cache[key]
-                if current_time - entry.timestamp <= self.refresh_period:
+            cursor = self.conn.execute("SELECT value, timestamp FROM cache WHERE key = ?", (key,))
+            result = cursor.fetchone()
+
+            if result:
+                value, timestamp = result
+                if current_time - timestamp <= self.refresh_period:
                     logger.debug("Cache hit for item %s", key)
-                    self.cache.move_to_end(key)  # update last_accessed
-                    return entry.value
-                logger.debug("Cache expired for item %s", key)
-                self.cache.pop(key)  # delete if expired
+                    # Update timestamp to refresh last accessed time
+                    self.conn.execute("UPDATE cache SET timestamp = ? WHERE key = ?", (current_time, key))
+                    self.conn.commit()
+                    return value
+                else:
+                    logger.debug("Cache expired for item %s", key)
+                    self.conn.execute("DELETE FROM cache WHERE key = ?", (key,))
+                    self.conn.commit()
 
     def put(self, key: str, value: str | None):
         with self.lock:
             current_time = time.time()
 
             logger.debug("Putting item %s into cache", key)
-            # update entry and move to end
-            self.cache[key] = CacheEntry(value, current_time)
-            self.cache.move_to_end(key)
+            self.conn.execute(
+                """
+                INSERT OR REPLACE INTO cache (key, value, timestamp)
+                VALUES (?, ?, ?)
+                """,
+                (key, value, current_time),
+            )
+            self.conn.commit()
 
-            # if length exceeded, pop least accessed item
-            if len(self.cache) > self.max_cache_size:
-                self.cache.popitem(last=False)
+            if self._get_cache_size() > self.max_cache_size:
+                logger.debug("Cache full, removing oldest item")
+                self.conn.execute(
+                    """
+                    DELETE FROM cache WHERE key IN (
+                        SELECT key FROM cache ORDER BY timestamp ASC LIMIT 1
+                    )
+                    """
+                )
+                self.conn.commit()
 
     def clear(self):
         """Clears the entire cache."""
         with self.lock:
             logger.debug("Clearing cache")
-            self.cache.clear()
+            self.conn.execute("DELETE FROM cache")
+            self.conn.commit()
 
-    def remove(self, item):
+    def remove(self, key: T):
         """Remove a specific key from the cache."""
         with self.lock:
-            hashed_key = self._hash_key(item)
-            if hashed_key in self.cache:
-                logger.debug("Deleting item %s from cache", item)
-                del self.cache[hashed_key]
+            logger.debug("Deleting item %s from cache", key)
+            self.conn.execute("DELETE FROM cache WHERE key = ?", (key,))
+            self.conn.commit()
+
+    def close(self):
+        """Closes the database connection."""
+        self.conn.close()
+        self._closed = True

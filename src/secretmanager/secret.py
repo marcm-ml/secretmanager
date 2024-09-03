@@ -7,7 +7,9 @@ from .registry import get_store, get_store_settings
 from .settings import Settings, StoreSettings
 from .store import AbstractSecretStore, SecretValue, SecretValueAdapter
 
-CACHE: LRUCache = LRUCache(max_size=Settings.cache.max_size, expires_in=Settings.cache.expires_in)
+CACHE: LRUCache = LRUCache(
+    db_path=Settings.cache._cache_file, max_size=Settings.cache.max_size, expires_in=Settings.cache.expires_in
+)
 logger = logging.getLogger(__name__)
 
 

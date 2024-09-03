@@ -1,7 +1,7 @@
 from enum import Enum
 from pathlib import Path
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field, JsonValue, computed_field
 from pydantic_settings import (
     BaseSettings,
     JsonConfigSettingsSource,
@@ -14,6 +14,7 @@ from pydantic_settings import (
 
 RELATIVE_CONFIG_BASE_PATH = Path(".secretmanager").resolve()
 XDG_CONFIG_BASE_PATH = Path("~", ".config", "secretmanager").expanduser().resolve()
+SECRETMANAGER_HOME = Path("~", ".secretmanager").expanduser().resolve()
 
 
 class StoreChoice(str, Enum):
@@ -33,6 +34,19 @@ class CacheSettings(BaseModel):
     expires_in: int = Field(
         default=1 * 60 * 60, description="Time in seconds since last access after which the cache entry expires"
     )
+    ephemeral: bool = Field(default=True, description="Whether the cache is in ephemeral (memory) or persistent")
+    cache_file: Path = Field(default=SECRETMANAGER_HOME / "cache.db", description="Path to cache sqlite database")
+
+    @computed_field
+    @property
+    def _cache_file(self) -> str | str:
+        if self.ephemeral:
+            return ":memory:"
+        else:
+            file = self.cache_file.expanduser().resolve()
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.touch(exist_ok=True)
+            return str(file)
 
 
 class StoreSettings(BaseModel):
