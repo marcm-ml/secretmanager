@@ -1,0 +1,117 @@
+[project]
+name = "secretmanager"
+authors = [{ name = "Marc", email = "mail@mail.com" }]
+readme = "README.md"
+requires-python = ">=3.9"
+dynamic = ["version"]
+dependencies = ["typer", "typing-extensions", "termcolor"]
+description = "Interact with secrets from a variety of secret managers such as environment variables, dotenv-files, AWS SecretManager and many more"
+classifiers = [
+  "Intended Audience :: Information Technology",
+  "Intended Audience :: System Administrators",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development",
+  "Typing :: Typed",
+  "Development Status :: 4 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: Apache Software License",
+]
+
+[project.urls]
+Homepage = "https://github.com/marcm-ml/secretmanager"
+Documentation = "https://github.com/marcm-ml/secretmanager/README.md"
+Repository = "https://github.com/marcm-ml/secretmanager"
+Issues = "https://github.com/marcm-ml/secretmanager/issues"
+Changelog = "https://github.com/marcm-ml/secretmanager/CHANGELOG.md"
+
+# dependencies
+[project.optional-dependencies]
+aws = ["boto3"]
+azure = ["azure-identity", "azure-keyvault-secrets"]
+gc = ["google-cloud-secret-manager"]
+bitwarden = ["bitwarden-sdk"]
+dotenv = ["python-dotenv"]
+all = [
+  "boto3",
+  "azure-identity",
+  "azure-keyvault-secrets",
+  "google-cloud-secret-manager",
+  "bitwarden-sdk",
+  "python-dotenv",
+  "pydantic",
+  "pydantic-settings",
+]
+
+[tool.uv]
+index-url = "https://pypi.python.org/simple"
+dev-dependencies = ["pytest", "pytest-cov", "ruff", "ipykernel", "moto"]
+
+# linting
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+select = ["F", "E", "W", "I", "N", "D", "UP", "PT", "PTH"]
+ignore = [
+  "E203",
+  "D100",
+  "D104",
+  "D105",
+  "D200",
+  "D202",
+  "D205",
+  "D212",
+  "D403",
+  "D415",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+"**/tests/*" = ["D103"]
+
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+# testing
+[tool.coverage.run]
+parallel = true
+source = ["src"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "@overload",
+  'if __name__ == "__main__":',
+  "if TYPE_CHECKING:",
+]
+
+# building
+[project.scripts]
+secretmanager = "secretmanager.cli:app"
+
+[tool.pdm]
+version = { source = "file", path = "src/secretmanager/version.py" }
+distribution = true
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"

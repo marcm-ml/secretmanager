@@ -1,0 +1,10 @@
+- config/settings via file, env.vars, etc similar to prefect
+- prefix/suffix support for each manager
+- mapping support per-manager
+- ~~filtering support globally by key~~
+- populate os.environ when using .get()?
+- caching: per-manager or globally?
+- integrate with pydantic models
+- integrate with pydantic-settings secret model (maybe? the same as above?)
+- decorator to inject secret into a function given some kwargs and a secret-id
+- refine store/default store
