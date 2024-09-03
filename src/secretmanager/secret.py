@@ -1,48 +1,47 @@
-import hashlib
-import logging
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from .cache import LRUCache
 from .registry import get_store, get_store_settings
 from .settings import Settings, StoreSettings
-from .store import AbstractSecretStore, SecretValue, SecretValueAdapter
+from .store import AbstractSecretStore, SecretValue
 
-CACHE: LRUCache = LRUCache(max_size=Settings.cache.max_size, expires_in=Settings.cache.expires_in)
-logger = logging.getLogger(__name__)
+# TODO: option for sqllite cache?
+CACHE: LRUCache["Secret"] = LRUCache(max_size=Settings.cache.max_size, expires_in=Settings.cache.expires_in)
+
+V = TypeVar("V", str, SecretValue)
 
 
 # TODO: individual secret settings?
-class Secret:
+class Secret(Generic[V]):
     def __init__(
-        self, key: str, store: AbstractSecretStore | None = None, settings: StoreSettings | None = None
+        self, key: str, store: AbstractSecretStore[V] | None = None, settings: StoreSettings | None = None
     ) -> None:
         self.store = store
         self.key = key
         self._key = key  # potentially re-mapped key
-        self.value: SecretValue = None  # type: ignore
+        self.value: V = None  # type: ignore
         self.settings = settings or StoreSettings()
-        self._last_used_store: AbstractSecretStore = None  # type: ignore
+        self._last_used_store: AbstractSecretStore[V] = None  # type: ignore
 
-    def __call__(self, store: AbstractSecretStore | None = None):
+    def __call__(self, store: AbstractSecretStore[V] | None = None) -> V | None:
         store = store or self.store or get_store(Settings.default_store, **Settings.default_store_kwargs)
         store_config = get_store_settings(Settings, store)
         self._last_used_store = store
 
         if self._filter_key(store_config):
             return None
-
         self._get_mapped_key(store_config)
 
-        if Settings.cache.enabled and (cached_value := self._get_cache()):
-            self.value = SecretValue(cached_value)
-            return self.value.get_secret_value()
+        if Settings.cache.enabled and (cached_value := CACHE.get(self)):
+            self.value = cached_value.value
+            return cached_value.value
 
         self.value = store.get(self._key)
 
         if Settings.cache.enabled:
-            self._put_cache()
+            CACHE.put(self)
 
-        return self.value.get_secret_value()
+        return self.value
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -52,22 +51,8 @@ class Secret:
             and self._last_used_store == other._last_used_store
         )
 
-    def _put_cache(self):
-        hashed_key = self._hash_key()
-        value_json = SecretValueAdapter.dump_json(self.value.get_secret_value()).decode() if self.value else None
-        logger.debug("Putting secret '%s' into cache as item %s", self.key, hashed_key)
-        return CACHE.put(key=hashed_key, value=value_json)
-
-    def _get_cache(self):
-        hashed_key = self._hash_key()
-        logger.debug("Getting cache for secret '%s' for cache item %s", self.key, hashed_key)
-        return CACHE.get(key=hashed_key)
-
-    def _hash_key(self):
-        return hashlib.sha256((self._key + self._last_used_store.__class__.__name__).encode()).hexdigest()
-
     def __hash__(self) -> int:
-        return hash(self._key) + hash(self._last_used_store)
+        return hash(self._key) + hash(self._last_used_store) + hash(self.settings)
 
     def __str__(self) -> str:
         return f"Secret({self.key})"

@@ -10,7 +10,7 @@ from ..store import AbstractSecretStore, SecretValue
 logger = logging.getLogger(__name__)
 
 
-class AWSSecretStore(AbstractSecretStore):
+class AWSSecretStore(AbstractSecretStore[SecretValue]):
     def __init__(
         self,
         kms_key: str | None = None,

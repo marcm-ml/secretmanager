@@ -10,7 +10,7 @@ from ..store import AbstractSecretStore, SecretValue
 logger = logging.getLogger(__name__)
 
 
-class DotEnvStore(AbstractSecretStore):
+class DotEnvStore(AbstractSecretStore[SecretValue]):
     def __init__(self, file: str | Path | None = None) -> None:
         try:
             import dotenv

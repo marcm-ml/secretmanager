@@ -9,7 +9,7 @@ from ..store import AbstractSecretStore, SecretValue
 logger = logging.getLogger(__name__)
 
 
-class EnvVarStore(AbstractSecretStore):
+class EnvVarStore(AbstractSecretStore[SecretValue]):
     def get(self, key: str):
         if (value := os.environ.get(key)) is None:
             raise SecretNotFoundError(f"Secret {key} was not found in environment variables")

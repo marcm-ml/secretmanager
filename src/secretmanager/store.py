@@ -4,7 +4,7 @@ from pydantic import JsonValue, TypeAdapter, ValidationError
 from pydantic import Secret as PydanticSecret
 
 SecretType = TypeVar("SecretType", str, JsonValue)
-SecretValueAdapter = TypeAdapter[JsonValue](JsonValue)
+SecretJsonValueAdapter = TypeAdapter[JsonValue](JsonValue)
 
 
 class SecretValue(PydanticSecret[JsonValue]):
@@ -25,13 +25,16 @@ class SecretValue(PydanticSecret[JsonValue]):
             secret_value: The secret value provided as a JSON string or a Python object.
         """
         try:
-            value = SecretValueAdapter.validate_json(secret_value)  # type: ignore
+            value = SecretJsonValueAdapter.validate_json(secret_value)  # type: ignore
         except ValidationError:
-            value = SecretValueAdapter.validate_python(secret_value)
+            value = SecretJsonValueAdapter.validate_python(secret_value)
         super().__init__(value)
 
 
-class AbstractSecretStore(Protocol):
+V = TypeVar("V")
+
+
+class AbstractSecretStore(Protocol[V]):
     """
     A protocol that defines the interface for secret storage backends.
 
@@ -43,7 +46,7 @@ class AbstractSecretStore(Protocol):
 
     config: ClassVar
 
-    def get(self, key: str) -> SecretValue:
+    def get(self, key: str) -> V:
         """
         Retrieves the secret associated with the given key.
 
@@ -52,7 +55,7 @@ class AbstractSecretStore(Protocol):
         """
         ...
 
-    def add(self, key: Any, value: Any) -> SecretValue:
+    def add(self, key: Any, value: Any) -> V:
         """
         Adds a new secret to the store.
 
@@ -64,7 +67,7 @@ class AbstractSecretStore(Protocol):
         """
         ...
 
-    def update(self, key: Any, value: Any) -> SecretValue:
+    def update(self, key: Any, value: Any) -> V:
         """
         Updates an existing or adds a new secret in the store.
 
@@ -80,7 +83,7 @@ class AbstractSecretStore(Protocol):
         """
         ...
 
-    def list_secrets(self) -> dict[str, SecretValue]:
+    def list_secrets(self) -> dict[str, V]:
         """
         Lists all secrets in the store including their value.
         """
@@ -100,4 +103,4 @@ class AbstractSecretStore(Protocol):
 
     @staticmethod
     def _serialize(value: JsonValue) -> str:
-        return SecretValueAdapter.dump_json(value).decode()
+        return str(SecretJsonValueAdapter.dump_json(value))
