@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class AWSSecretStore(AbstractSecretStore):
+    cacheable = True
+
     def __init__(
         self,
         kms_key: str | None = None,
@@ -41,8 +43,13 @@ class AWSSecretStore(AbstractSecretStore):
     def get(self, key: str):
         client = self._get_client()
         logger.info("Getting key %s from aws secretmanager", key)
-        response: dict[str, str] = client.get_secret_value(SecretId=key)
-        return SecretValue(response["SecretString"])
+
+        if cached_value := self._get_cache(key):
+            return SecretValue(cached_value)
+
+        value: str = client.get_secret_value(SecretId=key)["SecretString"]
+        self._put_cache(key, value)
+        return SecretValue(value)
 
     def add(self, key: str, value: JsonValue):
         client = self._get_client()
@@ -51,12 +58,14 @@ class AWSSecretStore(AbstractSecretStore):
             kwargs["KmsKeyId"] = self._kms_key
         logger.info("Adding key %s to aws secretmanager", key)
         client.create_secret(Name=key, SecretString=self._serialize(value), **kwargs)
+        self._put_cache(key, value)
         return SecretValue(self._serialize(value))
 
-    def update(self, key: str, value: str):
+    def update(self, key: str, value: JsonValue):
         client = self._get_client()
         logger.info("Updating key %s in aws secretmanager", key)
         client.update_secret(SecretId=key, SecretString=self._serialize(value))
+        self._put_cache(key, value)
         return SecretValue(self._serialize(value))
 
     def list_secret_keys(self):
@@ -73,3 +82,4 @@ class AWSSecretStore(AbstractSecretStore):
         client = self._get_client()
         logger.info("Deleting key %s from aws secretmanager", key)
         client.delete_secret(SecretId=key, **self._deletion_policy)
+        self._drop_cache(key)

@@ -3,7 +3,9 @@ import logging
 import threading
 import time
 from collections import OrderedDict
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
+
+from secretmanager.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -35,31 +37,32 @@ class LRUCache(metaclass=Singleton):
         self.max_cache_size = max_size
         self.refresh_period = expires_in
 
-    def _hash_key(self, item: Any):
-        """Generate a unique hash for the object based on its attributes."""
-        return int(hashlib.sha256(str(hash(item)).encode()).hexdigest(), 16)
+    def _hash_key(self, key: str) -> str:
+        return hashlib.sha256((key).encode()).hexdigest()
 
     def get(self, key: str):
         with self.lock:
             current_time = time.time()
+            hashed_key = self._hash_key(key)
 
-            if key in self.cache:
-                entry = self.cache[key]
+            if hashed_key in self.cache:
+                entry = self.cache[hashed_key]
                 if current_time - entry.timestamp <= self.refresh_period:
-                    logger.debug("Cache hit for item %s", key)
-                    self.cache.move_to_end(key)  # update last_accessed
+                    logger.debug("Cache hit for key %s", key)
+                    self.cache.move_to_end(hashed_key)  # update last_accessed
                     return entry.value
-                logger.debug("Cache expired for item %s", key)
-                self.cache.pop(key)  # delete if expired
+                logger.debug("Cache expired for key %s", key)
+                self.cache.pop(hashed_key)  # delete if expired
 
     def put(self, key: str, value: str | None):
         with self.lock:
             current_time = time.time()
+            hashed_key = self._hash_key(key)
 
-            logger.debug("Putting item %s into cache", key)
+            logger.debug("Putting key %s into cache", key)
             # update entry and move to end
-            self.cache[key] = CacheEntry(value, current_time)
-            self.cache.move_to_end(key)
+            self.cache[hashed_key] = CacheEntry(value, current_time)
+            self.cache.move_to_end(hashed_key)
 
             # if length exceeded, pop least accessed item
             if len(self.cache) > self.max_cache_size:
@@ -71,10 +74,13 @@ class LRUCache(metaclass=Singleton):
             logger.debug("Clearing cache")
             self.cache.clear()
 
-    def remove(self, item):
+    def remove(self, key):
         """Remove a specific key from the cache."""
         with self.lock:
-            hashed_key = self._hash_key(item)
+            hashed_key = self._hash_key(key)
             if hashed_key in self.cache:
-                logger.debug("Deleting item %s from cache", item)
+                logger.debug("Deleting item %s from cache", key)
                 del self.cache[hashed_key]
+
+
+CACHE: LRUCache = LRUCache(max_size=Settings.cache.max_size, expires_in=Settings.cache.expires_in)

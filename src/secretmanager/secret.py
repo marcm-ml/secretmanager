@@ -1,13 +1,10 @@
-import hashlib
 import logging
 from typing import Any
 
-from .cache import LRUCache
 from .registry import get_store, get_store_settings
 from .settings import Settings, StoreSettings
-from .store import AbstractSecretStore, SecretValue, SecretValueAdapter
+from .store import AbstractSecretStore, SecretValue
 
-CACHE: LRUCache = LRUCache(max_size=Settings.cache.max_size, expires_in=Settings.cache.expires_in)
 logger = logging.getLogger(__name__)
 
 
@@ -33,14 +30,7 @@ class Secret:
 
         self._get_mapped_key(store_config)
 
-        if Settings.cache.enabled and (cached_value := self._get_cache()):
-            self.value = SecretValue(cached_value)
-            return self.value.get_secret_value()
-
         self.value = store.get(self._key)
-
-        if Settings.cache.enabled:
-            self._put_cache()
 
         return self.value.get_secret_value()
 
@@ -51,20 +41,6 @@ class Secret:
             and self.value == other.value
             and self._last_used_store == other._last_used_store
         )
-
-    def _put_cache(self):
-        hashed_key = self._hash_key()
-        value_json = SecretValueAdapter.dump_json(self.value.get_secret_value()).decode() if self.value else None
-        logger.debug("Putting secret '%s' into cache as item %s", self.key, hashed_key)
-        return CACHE.put(key=hashed_key, value=value_json)
-
-    def _get_cache(self):
-        hashed_key = self._hash_key()
-        logger.debug("Getting cache for secret '%s' for cache item %s", self.key, hashed_key)
-        return CACHE.get(key=hashed_key)
-
-    def _hash_key(self):
-        return hashlib.sha256((self._key + self._last_used_store.__class__.__name__).encode()).hexdigest()
 
     def __hash__(self) -> int:
         return hash(self._key) + hash(self._last_used_store)

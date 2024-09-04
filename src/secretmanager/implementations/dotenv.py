@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class DotEnvStore(AbstractSecretStore):
+    cacheable = True
+
     def __init__(self, file: str | Path | None = None) -> None:
         try:
             import dotenv
@@ -29,11 +31,15 @@ class DotEnvStore(AbstractSecretStore):
         self._file = _file
 
     def get(self, key: str):
+        if cached_value := self._get_cache(key):
+            return SecretValue(cached_value)
+
         logger.info("Getting %s from dotenv store at %s", key, self._file)
         value = self._dotenv.get(key)
 
         if value is None:
             raise SecretNotFoundError(f"Secret {key} was not found in {self._file}")
+        self._put_cache(key, value)
         return SecretValue(value)
 
     def add(self, key: str, value: JsonValue):
@@ -42,13 +48,13 @@ class DotEnvStore(AbstractSecretStore):
 
         logger.info("Adding %s to dotenv store at %s", key, self._file)
         self._client.set_key(self._file, key, self._serialize(value))
-
+        self._put_cache(key, value)
         return SecretValue(self._serialize(value))
 
     def update(self, key: str, value: JsonValue):
         logger.info("Updating %s from dotenv store at %s", key, self._file)
         self._client.set_key(self._file, key, self._serialize(value))
-
+        self._put_cache(key, value)
         return SecretValue(self._serialize(value))
 
     def list_secret_keys(self):
@@ -62,3 +68,4 @@ class DotEnvStore(AbstractSecretStore):
     def delete(self, key: str) -> None:
         logger.info("Deleting %s from dotenv store at %s", key, self._file)
         self._client.unset_key(self._file, key)
+        self._drop_cache(key)
