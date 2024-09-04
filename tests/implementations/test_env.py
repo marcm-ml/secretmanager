@@ -55,8 +55,3 @@ def test_delete(populated_store_factory):
     secrets = store.list_secrets()
     secrets.pop("PYTEST_CURRENT_TEST")  # injected by default
     assert not secrets
-
-
-def test_reset_cache(populated_store_factory):
-    store = populated_store_factory
-    store.reset_cache()

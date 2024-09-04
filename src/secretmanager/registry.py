@@ -4,7 +4,7 @@ from collections.abc import Callable
 from .implementations.aws import AWSSecretStore
 from .implementations.dotenv import DotEnvStore
 from .implementations.env import EnvVarStore
-from .settings import SettingsFactory, StoreChoice, StoreSettings
+from .settings import StoreChoice
 from .store import AbstractSecretStore
 
 _registry: dict[str, Callable[..., AbstractSecretStore]] = {}
@@ -17,17 +17,6 @@ def register_implementation(name: str, cls: Callable[..., AbstractSecretStore], 
             raise ValueError(f"Name ({name}) already in the registry and replace is False")
     else:
         _registry[name] = cls
-
-
-def get_store_settings(settings: SettingsFactory, store: AbstractSecretStore) -> StoreSettings:
-    if isinstance(store, EnvVarStore):
-        return settings.env
-    elif isinstance(store, DotEnvStore):
-        return settings.dotenv
-    elif isinstance(store, AWSSecretStore):
-        return settings.aws
-    else:
-        return StoreSettings()
 
 
 def get_store(choice: str | StoreChoice, **kwargs) -> AbstractSecretStore:

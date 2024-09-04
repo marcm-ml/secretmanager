@@ -1,37 +1,39 @@
 import logging
-from typing import Any
+from typing import Any, Literal
 
 import botocore
 import botocore.session
+from botocore.exceptions import ClientError
 from pydantic import JsonValue
 
-from ..store import AbstractSecretStore, SecretValue
+from secretmanager.settings import AWSSettings, Settings
+from secretmanager.store import AbstractSecretStore, SecretValue
 
 logger = logging.getLogger(__name__)
 
 
-class AWSSecretStore(AbstractSecretStore):
+class AWSSecretStore(AbstractSecretStore[AWSSettings]):
     cacheable = True
 
     def __init__(
         self,
         kms_key: str | None = None,
-        deletion_policy: str | int = "force",
         session_options: dict[str, Any] | None = None,
         client_options: dict[str, Any] | None = None,
     ) -> None:
+        self.store_settings = Settings.aws
         self._session_options = session_options or {}
         self._client_options = client_options or {}
         self._kms_key = kms_key
+        self._deletion_policy = self._parse_deletion_policy(self.store_settings.deletion_policy)
 
-        # parse deletion policy
-        self._deletion_policy: None | dict = None
+    def _parse_deletion_policy(self, deletion_policy: Literal["force"] | int):
         if deletion_policy == "force":
-            self._deletion_policy = {"ForceDeleteWithoutRecovery": True}
+            return {"ForceDeleteWithoutRecovery": True}
         elif isinstance(deletion_policy, int):
             if 7 < deletion_policy > 30:
                 raise ValueError("Deletion Policy can only be within 7 to 30 days")
-            self._deletion_policy = {"RecoveryWindowInDays": deletion_policy}
+            return {"RecoveryWindowInDays": deletion_policy}
         else:
             raise ValueError("Unknown value for deletion_policy parameter")
 
@@ -45,11 +47,11 @@ class AWSSecretStore(AbstractSecretStore):
         logger.info("Getting key %s from aws secretmanager", key)
 
         if cached_value := self._get_cache(key):
-            return SecretValue(cached_value)
+            return SecretValue(self._deserialize(cached_value))
 
         value: str = client.get_secret_value(SecretId=key)["SecretString"]
         self._put_cache(key, value)
-        return SecretValue(value)
+        return SecretValue(self._deserialize(value))
 
     def add(self, key: str, value: JsonValue):
         client = self._get_client()
@@ -58,15 +60,15 @@ class AWSSecretStore(AbstractSecretStore):
             kwargs["KmsKeyId"] = self._kms_key
         logger.info("Adding key %s to aws secretmanager", key)
         client.create_secret(Name=key, SecretString=self._serialize(value), **kwargs)
-        self._put_cache(key, value)
-        return SecretValue(self._serialize(value))
+        self._put_cache(key, self._serialize(value))
+        return SecretValue(value)
 
     def update(self, key: str, value: JsonValue):
         client = self._get_client()
         logger.info("Updating key %s in aws secretmanager", key)
         client.update_secret(SecretId=key, SecretString=self._serialize(value))
-        self._put_cache(key, value)
-        return SecretValue(self._serialize(value))
+        self._put_cache(key, self._serialize(value))
+        return SecretValue(value)
 
     def list_secret_keys(self):
         client = self._get_client()
@@ -76,7 +78,13 @@ class AWSSecretStore(AbstractSecretStore):
 
     def list_secrets(self):
         secrets = self.list_secret_keys()
-        return {key: self.get(key) for key in secrets}
+        res: dict[str, SecretValue] = {}
+        for key in secrets:
+            try:
+                res[key] = self.get(key)
+            except ClientError as e:
+                logger.debug("Failed to get secret due to: %s", e.response["Error"]["Message"])
+        return res
 
     def delete(self, key: str) -> None:
         client = self._get_client()

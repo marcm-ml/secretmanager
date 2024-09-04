@@ -1,43 +1,21 @@
 import logging
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar
 
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from pydantic import Secret as PydanticSecret
 
-from secretmanager.cache import CACHE
-from secretmanager.settings import Settings
-
-# TODO: can we make this dynamic as such user can provide their own TypeAdapter?
-SecretValueAdapter = TypeAdapter[JsonValue](JsonValue)
+from .cache import CACHE
+from .settings import AWSSettings, DotEnvSettings, Settings, StoreSettings
 
 logger = logging.getLogger(__name__)
 
-
-class SecretValue(PydanticSecret[JsonValue]):
-    """
-    A wrapper class around pydantic Secret class.
-
-    To retrieve the secret value, call `get_secret_value()` on the SecretValue instance.
-    """
-
-    def __init__(self, secret_value: JsonValue) -> None:
-        """
-        Constructor
-
-        This class validates the input as JSON first and falls back to validating
-        it as a Python object if the JSON validation fails.
-
-        Args:
-            secret_value: The secret value provided as a JSON string or a Python object.
-        """
-        try:
-            value = SecretValueAdapter.validate_json(secret_value)  # type: ignore
-        except ValidationError:
-            value = SecretValueAdapter.validate_python(secret_value)
-        super().__init__(value)
+SecretValue = PydanticSecret[JsonValue]
 
 
-class AbstractSecretStore(Protocol):
+S = TypeVar("S", StoreSettings, AWSSettings, DotEnvSettings)
+
+
+class AbstractSecretStore(Protocol[S]):
     """
     A protocol that defines the interface for secret storage backends.
 
@@ -48,6 +26,9 @@ class AbstractSecretStore(Protocol):
     """
 
     cacheable: bool = False
+    store_settings: S = StoreSettings()
+    # TODO: can we make this dynamic as such user can provide their own TypeAdapter?
+    parser = TypeAdapter[JsonValue](JsonValue)
 
     def get(self, key: str) -> SecretValue:
         """
@@ -104,18 +85,25 @@ class AbstractSecretStore(Protocol):
     def __hash__(self) -> int:
         return hash(self.__class__.__name__)
 
-    @staticmethod
-    def _serialize(value: JsonValue) -> str:
-        return SecretValueAdapter.dump_json(value).decode()
+    def _serialize(self, value: JsonValue) -> str:
+        return self.parser.dump_json(value).decode()
+
+    def _deserialize(self, raw_value: str) -> JsonValue:
+        # value could be invalid-json, e.g. the store returns just a plain-text string
+        try:
+            value = self.parser.validate_json(raw_value)
+        except ValidationError:
+            value = self.parser.validate_python(raw_value)
+        return value
 
     def _construct_key(self, key: str) -> str:
         # considered duplicated keys for same class name!?
         return f"{self.__class__.__name__}:{key}"
 
-    def _put_cache(self, key: str, value: JsonValue):
+    def _put_cache(self, key: str, value: str | None):
         if self.cacheable and Settings.cache.enabled:
             key = self._construct_key(key)
-            value_json = self._serialize(value) if value is not None else None
+            value_json = value if value is not None else None
             CACHE.put(key=key, value=value_json)
 
     def _get_cache(self, key: str) -> str | None:

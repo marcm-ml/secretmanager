@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from .registry import get_store, get_store_settings
+from .registry import get_store
 from .settings import Settings, StoreSettings
 from .store import AbstractSecretStore, SecretValue
 
@@ -22,13 +22,12 @@ class Secret:
 
     def __call__(self, store: AbstractSecretStore | None = None):
         store = store or self.store or get_store(Settings.default_store, **Settings.default_store_kwargs)
-        store_config = get_store_settings(Settings, store)
         self._last_used_store = store
 
-        if self._filter_key(store_config):
+        if self._filter_key(store.store_settings):
             return None
 
-        self._get_mapped_key(store_config)
+        self._get_mapped_key(store.store_settings)
 
         self.value = store.get(self._key)
 

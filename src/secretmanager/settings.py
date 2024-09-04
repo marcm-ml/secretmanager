@@ -1,5 +1,6 @@
 from enum import Enum
 from pathlib import Path
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, JsonValue
 from pydantic_settings import (
@@ -46,6 +47,12 @@ class StoreSettings(BaseModel):
     )
 
 
+class AWSSettings(StoreSettings):
+    deletion_policy: Literal["force"] | Annotated[int, Field(ge=7, le=30)] = Field(
+        default=30, description="Deletion policy, either 'force' or an integer between 7-30."
+    )
+
+
 class DotEnvSettings(StoreSettings):
     file: str | Path | None = Field(default=None, description="Default .env filepath")
 
@@ -67,7 +74,7 @@ class SettingsFactory(BaseSettings):
 
     env: StoreSettings = Field(default_factory=StoreSettings, description="Environment variable store settings")
     dotenv: DotEnvSettings = Field(default_factory=DotEnvSettings, description="Dotenv store settings")
-    aws: StoreSettings = Field(default_factory=StoreSettings, description="AWS store settings")
+    aws: AWSSettings = Field(default_factory=AWSSettings, description="AWS store settings")
 
     model_config = SettingsConfigDict(
         extra="ignore",

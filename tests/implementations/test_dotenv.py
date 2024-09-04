@@ -45,11 +45,9 @@ def test_adding(empty_store_factory):
     store = empty_store_factory()
     store.add("KEY", "VALUE")
 
-    # populate cache again
-    store._dotenv.dict()
-    assert store._dotenv._dict
-    assert "KEY" in store._dotenv._dict
-    assert store._dotenv._dict["KEY"] == "VALUE"
+    store.cacheable = False
+    val = store.get("KEY")
+    assert val.get_secret_value() == "VALUE"
 
 
 def test_adding_exists_error(populated_store_factory):
