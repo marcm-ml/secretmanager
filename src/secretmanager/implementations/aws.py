@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class AWSSecretStore(AbstractSecretStore[AWSSettings]):
     cacheable = True
+    store_settings = Settings.aws
 
     def __init__(
         self,
@@ -21,7 +22,6 @@ class AWSSecretStore(AbstractSecretStore[AWSSettings]):
         session_options: dict[str, Any] | None = None,
         client_options: dict[str, Any] | None = None,
     ) -> None:
-        self.store_settings = Settings.aws
         self._session_options = session_options or {}
         self._client_options = client_options or {}
         self._kms_key = kms_key

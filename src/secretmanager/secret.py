@@ -10,17 +10,46 @@ logger = logging.getLogger(__name__)
 
 # TODO: individual secret settings?
 class Secret:
+    """
+    A class for retrieving secrets from different stores in the most convenient way
+
+    This class only implements retrieving a secret.
+    Due to potential risks, it does not implement adding, updating or deleting a secret as of now.
+    """
+
     def __init__(
         self, key: str, store: AbstractSecretStore | None = None, settings: StoreSettings | None = None
     ) -> None:
+        """
+        Constructor
+
+        Args:
+            key: Generic key that is the same across all stores. Depending on the settings, a prefix/suffix is added.
+            store: Overwrites the global default store. Defaults to None.
+            settings: Settings that overwrite the default store-sepcific StoreSettings as well as
+                the global StoreSettings. Defaults to None.
+        """
         self.store = store
         self.key = key
         self._key = key  # potentially re-mapped key
-        self.value: SecretValue = None  # type: ignore
+        self.value: SecretValue | None = None
         self.settings = settings or StoreSettings()
-        self._last_used_store: AbstractSecretStore = None  # type: ignore
+        self._last_used_store: AbstractSecretStore | None = None
 
     def __call__(self, store: AbstractSecretStore | None = None):
+        """
+        Retrieve secret from a store
+
+        Args:
+            store: Overwrites the Secret's default store as well as the global default store
+
+        Returns:
+            Parsed secret value
+
+        Raises:
+            NotImplementedError: If the Setting.default_store is not a valid store
+            Exception: Any erorr when retrieving the secret from the store. Depends on the store implementation
+        """
         store = store or self.store or get_store(Settings.default_store, **Settings.default_store_kwargs)
         self._last_used_store = store
 

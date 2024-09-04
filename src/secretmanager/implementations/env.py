@@ -12,9 +12,7 @@ logger = logging.getLogger(__name__)
 
 class EnvVarStore(AbstractSecretStore[StoreSettings]):
     cacheable = True
-
-    def __init__(self) -> None:
-        self.store_settings = Settings.env
+    store_settings = Settings.env
 
     def get(self, key: str):
         if cached_value := self._get_cache(key):

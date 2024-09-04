@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 class DotEnvStore(AbstractSecretStore[DotEnvSettings]):
     cacheable = True
+    store_settings = Settings.dotenv
 
     def __init__(self, file: str | Path | None = None) -> None:
         try:
@@ -25,7 +26,6 @@ class DotEnvStore(AbstractSecretStore[DotEnvSettings]):
         if not _file.is_file():
             raise ValueError(f"{_file} is a directory")
 
-        self.store_settings = Settings.dotenv
         self._client = dotenv
         self._dotenv = dotenv.main.DotEnv(_file, verbose=False, interpolate=False, override=False)
         self._cache = self._dotenv.dict()
