@@ -21,15 +21,15 @@ class CacheEntry(Generic[T]):
 class Singleton(type):
     _instances = dict()
 
-    def __call__(cls, *args, **kwargs):
-        unique_key = (cls.__name__,)
+    def __call__(cls, /, **kwargs):
+        unique_key = (cls.__name__, *kwargs.values())
         if unique_key not in cls._instances:
-            cls._instances[unique_key] = super().__call__(*args, **kwargs)
+            cls._instances[unique_key] = super().__call__(**kwargs)
         return cls._instances[unique_key]
 
 
 class LRUCache(metaclass=Singleton):
-    def __init__(self, max_size: int, expires_in: int):
+    def __init__(self, /, max_size: int, expires_in: int):
         self.lock = threading.Lock()
         self.cache: OrderedDict[str, CacheEntry[str | None]] = OrderedDict()
         self.max_cache_size = max_size
