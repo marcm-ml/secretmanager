@@ -1,5 +1,4 @@
 import logging
-from copy import copy
 from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
@@ -34,8 +33,8 @@ class AbstractSecretStore(Protocol[S]):
         cacheable: Indicates whether the secrets in the store is cached.
     """
 
-    capabilities: StoreCapabilities = StoreCapabilities(cacheable=False, read=False, write=False)
-    settings: S = StoreSettings()
+    capabilities: StoreCapabilities
+    settings: S
     # TODO: can we make this dynamic as such user can provide their own TypeAdapter?
     parser = TypeAdapter[JsonValue](JsonValue)
 
@@ -62,12 +61,6 @@ class AbstractSecretStore(Protocol[S]):
             and self.settings == other.settings
             and self.parser == other.parser
         )
-
-    def __deepcopy__(self, memo: dict[int, Any] | None = None):
-        cpy = copy(self)
-        cpy.settings = self.settings.__deepcopy__()
-        cpy.capabilities = self.capabilities.__deepcopy__()
-        return cpy
 
     def _serialize(self, value: JsonValue) -> str:
         return self.parser.dump_json(value).decode()

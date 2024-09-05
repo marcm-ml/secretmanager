@@ -14,7 +14,6 @@ def sops_file(tmp_path):
 @pytest.fixture(autouse=True)
 def _set_sops_binary(monkeypatch):
     monkeypatch.setattr("secretmanager.implementations.sops._get_sops_version", lambda x: "3.0.0")
-    monkeypatch.setattr("secretmanager.implementations.sops._sops", True)
 
 
 @pytest.fixture
@@ -23,13 +22,7 @@ def store(monkeypatch, sops_file) -> SOPSSecretStore:
         "secretmanager.implementations.sops.SOPSSecretStore._decrypt",
         lambda x: b'{"KEY": "VALUE", "TEST": {"key": "value"}}',
     )
-    return SOPSSecretStore(sops_file).__deepcopy__()
-
-
-def test_binary_not_available(monkeypatch, sops_file):
-    monkeypatch.setattr("secretmanager.implementations.sops._sops", False)
-    with pytest.raises(RuntimeError, match="Cannot find `sops` command anywhere on PATH"):
-        SOPSSecretStore(sops_file)
+    return SOPSSecretStore(sops_file)
 
 
 def test_version_invalid(monkeypatch, sops_file):

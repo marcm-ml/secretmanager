@@ -1,6 +1,5 @@
 import logging
 import re
-import shutil
 import subprocess
 from functools import lru_cache
 from pathlib import Path
@@ -14,25 +13,23 @@ from secretmanager.store import AbstractSecretStore, SecretValue, StoreCapabilit
 
 logger = logging.getLogger(__name__)
 
-_sops = bool(shutil.which(Settings.sops.binary or "sops"))
 SUPPORTED_FORMAT_TYPE = Literal["json"] | Literal["yaml"] | Literal["dotenv"] | Literal["binary"]
 
 
 @lru_cache(maxsize=10)
 def _get_sops_version(binary: str | Path):
-    if _sops:
-        version_info = subprocess.run([binary, "-v"], capture_output=True).stdout.decode()
-        installed_version = None
-        if version := re.compile(r"\d\.\d\.\d+").search(version_info):
-            installed_version = version.group()
-        return installed_version
+    version_info = subprocess.run([binary, "-v"], capture_output=True).stdout.decode()
+    installed_version = None
+    if version := re.compile(r"\d\.\d\.\d+").search(version_info):
+        installed_version = version.group()
+    return installed_version
 
 
 class SOPSSecretStore(AbstractSecretStore[SopsSettings]):
-    capabilities = StoreCapabilities(cacheable=True, read=True, write=False)
-    settings = Settings.sops
-
     def __init__(self, file: str | Path | None, sops_options: list[str] | None = None) -> None:
+        self.settings = Settings.sops
+        self.capabilities = StoreCapabilities(cacheable=True, read=True, write=False)
+
         # check file
         self._file = file or Settings.sops.file
         if self._file is None:
@@ -43,12 +40,6 @@ class SOPSSecretStore(AbstractSecretStore[SopsSettings]):
         if not self._file.is_file():
             raise ValueError("%s is not a file", self._file)
 
-        # check binary
-        if not _sops:
-            raise RuntimeError(
-                "Cannot find `sops` command anywhere on PATH. Please add it to PATH "
-                "or set the settings.sops.binary to the install location of the sops binary"
-            )
         self._binary = Settings.sops.binary or "sops"
         self._sops_version = _get_sops_version(self._binary)
         if self._sops_version and int(self._sops_version.split(".")[0]) != 3:

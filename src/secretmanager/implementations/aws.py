@@ -6,6 +6,7 @@ import botocore.session
 from botocore.exceptions import ClientError
 from pydantic import JsonValue
 
+from secretmanager.error import SecretAlreadyExists, SecretNotFoundError
 from secretmanager.settings import AWSSettings, Settings
 from secretmanager.store import AbstractSecretStore, SecretValue, StoreCapabilities
 
@@ -13,15 +14,15 @@ logger = logging.getLogger(__name__)
 
 
 class AWSSecretStore(AbstractSecretStore[AWSSettings]):
-    capabilities = StoreCapabilities(cacheable=True, read=True, write=True)
-    settings = Settings.aws
-
     def __init__(
         self,
         kms_key: str | None = None,
         session_options: dict[str, Any] | None = None,
         client_options: dict[str, Any] | None = None,
     ) -> None:
+        self.capabilities = StoreCapabilities(cacheable=True, read=True, write=True)
+        self.settings = Settings.aws
+
         self._session_options = session_options or {}
         self._client_options = client_options or {}
         self._kms_key = kms_key
@@ -50,8 +51,13 @@ class AWSSecretStore(AbstractSecretStore[AWSSettings]):
 
         if cached_value := self._get_cache(key):
             return SecretValue(self._deserialize(cached_value))
-
-        value: str = client.get_secret_value(SecretId=key)["SecretString"]
+        try:
+            value: str = client.get_secret_value(SecretId=key)["SecretString"]
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ResourceNotFoundException":
+                raise SecretNotFoundError(f"Secret {key} was not found in AWS SecretManager") from e
+            else:
+                raise e
         self._put_cache(key, value)
         return SecretValue(self._deserialize(value))
 
@@ -61,7 +67,11 @@ class AWSSecretStore(AbstractSecretStore[AWSSettings]):
         if self._kms_key:
             kwargs["KmsKeyId"] = self._kms_key
         logger.info("Adding key %s to aws secretmanager", key)
-        client.create_secret(Name=key, SecretString=self._serialize(value), **kwargs)
+        try:
+            client.create_secret(Name=key, SecretString=self._serialize(value), **kwargs)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ResourceExistsException":
+                raise SecretAlreadyExists(f"Secret {key} already exists") from e
         self._put_cache(key, self._serialize(value))
         return SecretValue(value)
 

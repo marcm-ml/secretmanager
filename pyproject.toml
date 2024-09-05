@@ -37,13 +37,13 @@ Changelog = "https://github.com/marcm-ml/secretmanager/CHANGELOG.md"
 
 # dependencies
 [project.optional-dependencies]
-aws = ["boto3"]
+aws = ["botocore"]
 azure = ["azure-identity", "azure-keyvault-secrets"]
-gc = ["google-cloud-secret-manager"]
 bitwarden = ["bitwarden-sdk"]
 dotenv = ["python-dotenv"]
+gc = ["google-cloud-secret-manager"]
 all = [
-  "boto3",
+  "botocore",
   "azure-identity",
   "azure-keyvault-secrets",
   "google-cloud-secret-manager",

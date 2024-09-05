@@ -1571,14 +1571,14 @@ all = [
     { name = "azure-identity" },
     { name = "azure-keyvault-secrets" },
     { name = "bitwarden-sdk" },
-    { name = "boto3" },
+    { name = "botocore" },
     { name = "google-cloud-secret-manager" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
 ]
 aws = [
-    { name = "boto3" },
+    { name = "botocore" },
 ]
 azure = [
     { name = "azure-identity" },
@@ -1611,8 +1611,8 @@ requires-dist = [
     { name = "azure-keyvault-secrets", marker = "extra == 'azure'" },
     { name = "bitwarden-sdk", marker = "extra == 'all'" },
     { name = "bitwarden-sdk", marker = "extra == 'bitwarden'" },
-    { name = "boto3", marker = "extra == 'all'" },
-    { name = "boto3", marker = "extra == 'aws'" },
+    { name = "botocore", marker = "extra == 'all'" },
+    { name = "botocore", marker = "extra == 'aws'" },
     { name = "google-cloud-secret-manager", marker = "extra == 'all'" },
     { name = "google-cloud-secret-manager", marker = "extra == 'gc'" },
     { name = "pydantic", marker = "extra == 'all'" },

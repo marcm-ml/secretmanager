@@ -5,6 +5,7 @@ import typer
 
 from secretmanager.cli.secret import app as secret_app
 from secretmanager.cli.settings import app as settings_app
+from secretmanager.cli.stores import app as stores_app
 
 
 class Verbosity(str, Enum):
@@ -21,6 +22,7 @@ class Verbosity(str, Enum):
 app = typer.Typer(pretty_exceptions_enable=False, context_settings={"max_content_width": 500})
 app.add_typer(secret_app)
 app.add_typer(settings_app)
+app.add_typer(stores_app)
 
 
 @app.callback()

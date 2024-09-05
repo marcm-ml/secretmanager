@@ -11,15 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 class DotEnvStore(AbstractSecretStore[DotEnvSettings]):
-    capabilities = StoreCapabilities(cacheable=True, read=True, write=True)
-    cacheable = True
-    settings = Settings.dotenv
-
     def __init__(self, file: str | Path | None = None) -> None:
-        try:
-            import dotenv
-        except ImportError as e:
-            raise ImportError("Make sure to install with [dotenv]") from e
+        import dotenv
+
+        self.capabilities = StoreCapabilities(cacheable=True, read=True, write=True)
+        self.settings = Settings.dotenv
 
         _file = Path(file or Settings.dotenv.file or dotenv.find_dotenv() or ".env").resolve()
         if not _file.exists():
@@ -28,8 +24,6 @@ class DotEnvStore(AbstractSecretStore[DotEnvSettings]):
             raise ValueError(f"{_file} is a directory")
 
         self._client = dotenv
-        self._dotenv = dotenv.main.DotEnv(_file, verbose=False, interpolate=False, override=False)
-        self._dotenv.dict()
         self._file = _file
 
     def get(self, key: str):
@@ -37,7 +31,7 @@ class DotEnvStore(AbstractSecretStore[DotEnvSettings]):
             return SecretValue(self._deserialize(cached_value))
 
         logger.info("Getting %s from dotenv store at %s", key, self._file)
-        value = self._dotenv.get(key)
+        value = self._client.get_key(self._file, key)
 
         if value is None:
             raise SecretNotFoundError(f"Secret {key} was not found in {self._file}")
@@ -45,7 +39,7 @@ class DotEnvStore(AbstractSecretStore[DotEnvSettings]):
         return SecretValue(self._deserialize(value))
 
     def add(self, key: str, value: JsonValue):
-        if key in self._dotenv.dict():
+        if self._client.get_key(self._file, key):
             raise SecretAlreadyExists(f"Secret {key} already exists")
 
         logger.info("Adding %s to dotenv store at %s", key, self._file)

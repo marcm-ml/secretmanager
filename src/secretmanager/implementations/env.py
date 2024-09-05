@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class EnvVarStore(AbstractSecretStore[StoreSettings]):
-    capabilities = StoreCapabilities(cacheable=True, read=True, write=True)
-    settings = Settings.env
+    def __init__(self) -> None:
+        self.settings = Settings.env
+        self.capabilities = StoreCapabilities(cacheable=True, read=True, write=True)
 
     def get(self, key: str):
         if cached_value := self._get_cache(key):

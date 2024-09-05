@@ -71,6 +71,10 @@ class SopsSettings(StoreSettings):
 
 
 class SettingsFactory(BaseSettings):
+    default_store: str = Field(default=StoreChoice.ENV.value, description="Default store to use")
+    default_store_kwargs: dict[str, JsonValue] = Field(
+        default_factory=dict, description="Kwargs passed to the default store"
+    )
     prefix: str = Field(default="", description="Prefix to prepend to all secret keys globally")
     suffix: str = Field(default="", description="Suffix to append to all secret keys globally")
     mapping: dict[str, str] = Field(
@@ -79,16 +83,12 @@ class SettingsFactory(BaseSettings):
     filter_key: list[str] = Field(
         default_factory=list, description="List of keys to filter globally, is applied on an unmapped key"
     )
-    default_store: str = Field(default=StoreChoice.ENV.value, description="Default store to use")
-    default_store_kwargs: dict[str, JsonValue] = Field(
-        default_factory=dict, description="Kwargs passed to the default store"
-    )
 
     cache: CacheSettings = Field(default_factory=CacheSettings, description="Cache settings")
 
-    env: StoreSettings = Field(default_factory=StoreSettings, description="Environment variable store settings")
-    dotenv: DotEnvSettings = Field(default_factory=DotEnvSettings, description="Dotenv store settings")
     aws: AWSSettings = Field(default_factory=AWSSettings, description="AWS store settings")
+    dotenv: DotEnvSettings = Field(default_factory=DotEnvSettings, description="Dotenv store settings")
+    env: StoreSettings = Field(default_factory=StoreSettings, description="Environment variable store settings")
     sops: SopsSettings = Field(default_factory=SopsSettings, description="SOPS store settings")
 
     model_config = SettingsConfigDict(

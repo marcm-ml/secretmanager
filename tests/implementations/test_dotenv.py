@@ -7,28 +7,18 @@ from secretmanager.error import SecretAlreadyExists, SecretNotFoundError
 from secretmanager.implementations.dotenv import DotEnvStore
 
 
-def _store_factory(tmp_path: Path, populate: bool = False) -> Callable[[bool], DotEnvStore]:
+@pytest.fixture
+def store_factory(tmp_path: Path) -> Callable[[bool], DotEnvStore]:
     """Get DotEnvStore instance with a existing file either pre-populated or not"""
 
     def wrapper(*args, **kwargs):
         file = tmp_path / ".env"
         file.touch()
-        if populate:
-            with file.open("w") as f:
-                f.write("KEY=VALUE")
-        return DotEnvStore(file=file, *args, **kwargs).__deepcopy__()
+        with file.open("w") as f:
+            f.write("KEY=VALUE")
+        return DotEnvStore(file=file, *args, **kwargs)
 
     return wrapper
-
-
-@pytest.fixture
-def empty_store_factory(tmp_path) -> Callable[..., DotEnvStore]:
-    return _store_factory(tmp_path=tmp_path, populate=False)
-
-
-@pytest.fixture
-def populated_store_factory(tmp_path) -> Callable[..., DotEnvStore]:
-    return _store_factory(tmp_path=tmp_path, populate=True)
 
 
 def test_is_dir():
@@ -41,37 +31,37 @@ def test_missing_file(tmp_path):
         DotEnvStore(file=tmp_path)
 
 
-def test_getting_missing(empty_store_factory):
-    store = empty_store_factory()
+def test_getting_missing(store_factory):
+    store = store_factory()
     with pytest.raises(SecretNotFoundError, match="was not found in"):
         store.get(str(object().__hash__()))
 
 
-def test_getting(populated_store_factory):
-    store = populated_store_factory()
+def test_getting(store_factory):
+    store = store_factory()
     val = store.get("KEY")
 
     assert val.get_secret_value() == "VALUE"
 
 
-def test_adding(empty_store_factory):
-    store = empty_store_factory()
-    store.add("KEY", "VALUE")
+def test_adding(store_factory):
+    store = store_factory()
+    store.add("OTHER_KEY", "VALUE")
 
     store.cacheable = False
-    val = store.get("KEY")
+    val = store.get("OTHER_KEY")
     assert val.get_secret_value() == "VALUE"
 
 
-def test_adding_exists_error(populated_store_factory):
-    store = populated_store_factory()
+def test_adding_exists_error(store_factory):
+    store = store_factory()
 
     with pytest.raises(SecretAlreadyExists, match="Secret KEY already exists"):
         store.add("KEY", "VALUE")
 
 
-def test_list_secret_keys(populated_store_factory):
-    store = populated_store_factory()
+def test_list_secret_keys(store_factory):
+    store = store_factory()
     store.add("TEST", {"key": "value"})
     secrets = store.list_secret_keys()
 
@@ -79,8 +69,8 @@ def test_list_secret_keys(populated_store_factory):
     assert "TEST" in secrets
 
 
-def test_list_secrets(populated_store_factory):
-    store = populated_store_factory()
+def test_list_secrets(store_factory):
+    store = store_factory()
     store.add("TEST", {"key": "value"})
     secrets = store.list_secrets()
 
@@ -90,7 +80,7 @@ def test_list_secrets(populated_store_factory):
     assert secrets["TEST"].get_secret_value() == {"key": "value"}
 
 
-def test_delete(populated_store_factory):
-    store = populated_store_factory()
+def test_delete(store_factory):
+    store = store_factory()
     store.delete("KEY")
     assert not store.list_secrets()

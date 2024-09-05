@@ -13,7 +13,7 @@ def store(monkeypatch):
     monkeypatch.setenv("KEY", "VALUE")
     monkeypatch.setenv("SIMPLE", r'"VALUE"')
     monkeypatch.setenv("COMPLEX", r'{"MAPPING":{"KEY":"VALUE"},"LIST":[1,2,3],"STRING": "123","FLOAT": 1.2}')
-    return EnvVarStore().__deepcopy__()
+    return EnvVarStore()
 
 
 @pytest.mark.parametrize(
