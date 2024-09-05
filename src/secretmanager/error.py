@@ -6,5 +6,5 @@ class SecretNotFoundError(BaseSecretError):
     pass
 
 
-class SecretAlreadyExists(BaseSecretError):
+class SecretAlreadyExistsError(BaseSecretError):
     pass

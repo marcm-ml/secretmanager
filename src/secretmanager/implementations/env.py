@@ -3,7 +3,7 @@ import os
 
 from pydantic import JsonValue
 
-from secretmanager.error import SecretAlreadyExists, SecretNotFoundError
+from secretmanager.error import SecretAlreadyExistsError, SecretNotFoundError
 from secretmanager.settings import Settings, StoreSettings
 from secretmanager.store import AbstractSecretStore, SecretValue, StoreCapabilities
 
@@ -28,7 +28,7 @@ class EnvVarStore(AbstractSecretStore[StoreSettings]):
     def add(self, key: str, value: JsonValue):
         logger.info("Adding key %s to environment variable store", key)
         if key in os.environ:
-            raise SecretAlreadyExists(f"Secret {key} already exists in environment variables, use update instead")
+            raise SecretAlreadyExistsError(f"Secret {key} already exists in environment variables, use update instead")
         os.environ[key] = self._serialize(value)
         self._put_cache(key, self._serialize(value))
         return SecretValue(value)

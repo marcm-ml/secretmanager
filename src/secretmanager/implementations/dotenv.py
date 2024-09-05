@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pydantic import JsonValue
 
-from secretmanager.error import SecretAlreadyExists, SecretNotFoundError
+from secretmanager.error import SecretAlreadyExistsError, SecretNotFoundError
 from secretmanager.settings import DotEnvSettings, Settings
 from secretmanager.store import AbstractSecretStore, SecretValue, StoreCapabilities
 
@@ -40,7 +40,7 @@ class DotEnvStore(AbstractSecretStore[DotEnvSettings]):
 
     def add(self, key: str, value: JsonValue):
         if self._client.get_key(self._file, key):
-            raise SecretAlreadyExists(f"Secret {key} already exists")
+            raise SecretAlreadyExistsError(f"Secret {key} already exists")
 
         logger.info("Adding %s to dotenv store at %s", key, self._file)
         self._client.set_key(self._file, key, self._serialize(value))

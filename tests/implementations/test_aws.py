@@ -4,7 +4,7 @@ import botocore.session
 import pytest
 from moto import mock_aws
 
-from secretmanager.error import SecretAlreadyExists, SecretNotFoundError
+from secretmanager.error import SecretAlreadyExistsError, SecretNotFoundError
 from secretmanager.implementations.aws import AWSSecretStore
 
 
@@ -74,7 +74,7 @@ def test_adding(store_factory, secretmanager):
 def test_adding_exists_error(store_factory):
     store = store_factory()
 
-    with pytest.raises(SecretAlreadyExists, match="Secret KEY already exists"):
+    with pytest.raises(SecretAlreadyExistsError, match="Secret KEY already exists"):
         store.add("KEY", "VALUE")
 
 

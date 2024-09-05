@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from secretmanager.error import SecretAlreadyExists, SecretNotFoundError
+from secretmanager.error import SecretAlreadyExistsError, SecretNotFoundError
 from secretmanager.implementations.env import EnvVarStore
 
 
@@ -37,7 +37,7 @@ def test_adding(store_factory):
 def test_adding_exists_error(store_factory):
     store = store_factory
 
-    with pytest.raises(SecretAlreadyExists, match="Secret KEY already exists"):
+    with pytest.raises(SecretAlreadyExistsError, match="Secret KEY already exists"):
         store.add("KEY", "VALUE")
 
 

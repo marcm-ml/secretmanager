@@ -6,7 +6,7 @@ import botocore.session
 from botocore.exceptions import ClientError
 from pydantic import JsonValue
 
-from secretmanager.error import SecretAlreadyExists, SecretNotFoundError
+from secretmanager.error import SecretAlreadyExistsError, SecretNotFoundError
 from secretmanager.settings import AWSSettings, Settings
 from secretmanager.store import AbstractSecretStore, SecretValue, StoreCapabilities
 
@@ -71,7 +71,7 @@ class AWSSecretStore(AbstractSecretStore[AWSSettings]):
             client.create_secret(Name=key, SecretString=self._serialize(value), **kwargs)
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceExistsException":
-                raise SecretAlreadyExists(f"Secret {key} already exists") from e
+                raise SecretAlreadyExistsError(f"Secret {key} already exists") from e
         self._put_cache(key, self._serialize(value))
         return SecretValue(value)
 
