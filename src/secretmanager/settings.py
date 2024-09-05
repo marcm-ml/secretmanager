@@ -18,12 +18,13 @@ XDG_CONFIG_BASE_PATH = Path("~", ".config", "secretmanager").expanduser().resolv
 
 
 class StoreChoice(str, Enum):
-    DOTENV = "DOTENV"
-    ENV = "ENV"
     AWS = "AWS"
     AZURE = "AZURE"
     BITWARDEN = "BITWARDEN"
+    DOTENV = "DOTENV"
+    ENV = "ENV"
     GOOGLE = "GC"
+    SOPS = "SOPS"
 
 
 class CacheSettings(BaseModel):
@@ -57,6 +58,14 @@ class DotEnvSettings(StoreSettings):
     file: str | Path | None = Field(default=None, description="Default .env filepath")
 
 
+class SopsSettings(StoreSettings):
+    binary: str | Path = Field(default="sops", description="Path to sops binary")
+    file: str | Path | None = Field(default=None, description="Default encrypted sops file")
+    options: list[str] = Field(
+        default_factory=list, description="Additiona command line options passed to sops command invocation"
+    )
+
+
 class SettingsFactory(BaseSettings):
     prefix: str = Field(default="", description="Prefix to prepend to all secret keys globally")
     suffix: str = Field(default="", description="Suffix to append to all secret keys globally")
@@ -70,11 +79,13 @@ class SettingsFactory(BaseSettings):
     default_store_kwargs: dict[str, JsonValue] = Field(
         default_factory=dict, description="Kwargs passed to the default store"
     )
+
     cache: CacheSettings = Field(default_factory=CacheSettings, description="Cache settings")
 
     env: StoreSettings = Field(default_factory=StoreSettings, description="Environment variable store settings")
     dotenv: DotEnvSettings = Field(default_factory=DotEnvSettings, description="Dotenv store settings")
     aws: AWSSettings = Field(default_factory=AWSSettings, description="AWS store settings")
+    sops: SopsSettings = Field(default_factory=SopsSettings, description="SOPS store settings")
 
     model_config = SettingsConfigDict(
         extra="ignore",
