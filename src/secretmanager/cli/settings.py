@@ -55,7 +55,7 @@ def _plain_print(obj: BaseModel, exclude_unset: bool = False):
     spacing = (len(cols) - 1) * 3
     print(" | ".join([f"{col: <{leng}}" for col, leng in zip(cols, max_lengths)]))
     print(f"{'' :-<{sum(max_lengths) + spacing}}")
-    for elem in sorted(elems, key=lambda x: x["ENVIRONMENT VARIABLE"]):
+    for elem in elems:
         print(
             colored(
                 " | ".join(f"{elem[col]: <{leng}}" for col, leng in zip(cols, max_lengths)),
@@ -75,7 +75,7 @@ def view(
         _plain_print(Settings, exclude_unset)
     elif format == FormatChoice.JSON:
         indent = 2 if pretty else None
-        print(json.dumps(Settings.model_dump(exclude_unset=exclude_unset), indent=indent, sort_keys=pretty))
+        print(json.dumps(Settings.model_dump(exclude_unset=exclude_unset), indent=indent))
     elif format == FormatChoice.YAML:
         indent = 2 if pretty else None
-        print(yaml.dump(Settings.model_dump(exclude_unset=exclude_unset), indent=indent))
+        print(yaml.dump(Settings.model_dump(exclude_unset=exclude_unset), indent=indent, sort_keys=False))

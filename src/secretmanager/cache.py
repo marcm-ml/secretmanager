@@ -19,8 +19,6 @@ class CacheEntry(Generic[T]):
 
 
 class Singleton(type):
-    """Ensures that only one database interface is created per unique key"""
-
     _instances = dict()
 
     def __call__(cls, *args, **kwargs):
@@ -48,10 +46,10 @@ class LRUCache(metaclass=Singleton):
             if hashed_key in self.cache:
                 entry = self.cache[hashed_key]
                 if current_time - entry.timestamp <= self.refresh_period:
-                    logger.debug("Cache hit for key %s", key)
+                    logger.debug("Cache hit for key %s (%s)", key, hashed_key)
                     self.cache.move_to_end(hashed_key)  # update last_accessed
                     return entry.value
-                logger.debug("Cache expired for key %s", key)
+                logger.debug("Cache expired for key %s (%s)", key, hashed_key)
                 self.cache.pop(hashed_key)  # delete if expired
 
     def put(self, key: str, value: str | None):
@@ -59,7 +57,7 @@ class LRUCache(metaclass=Singleton):
             current_time = time.time()
             hashed_key = self._hash_key(key)
 
-            logger.debug("Putting key %s into cache", key)
+            logger.debug("Putting key %s (%s) into cache", key, hashed_key)
             # update entry and move to end
             self.cache[hashed_key] = CacheEntry(value, current_time)
             self.cache.move_to_end(hashed_key)
@@ -71,7 +69,7 @@ class LRUCache(metaclass=Singleton):
     def clear(self):
         """Clears the entire cache."""
         with self.lock:
-            logger.debug("Clearing cache")
+            logger.debug("Clearing cache with %s cached items", len(self.cache))
             self.cache.clear()
 
     def remove(self, key):
@@ -79,7 +77,7 @@ class LRUCache(metaclass=Singleton):
         with self.lock:
             hashed_key = self._hash_key(key)
             if hashed_key in self.cache:
-                logger.debug("Deleting item %s from cache", key)
+                logger.debug("Deleting item %s (%s) from cache", key, hashed_key)
                 del self.cache[hashed_key]
 
 
