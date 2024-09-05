@@ -2,7 +2,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from pydantic_settings import (
     BaseSettings,
     JsonConfigSettingsSource,
@@ -17,6 +17,10 @@ RELATIVE_CONFIG_BASE_PATH = Path(".secretmanager").resolve()
 XDG_CONFIG_BASE_PATH = Path("~", ".config", "secretmanager").expanduser().resolve()
 
 
+class ModelSettings(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+
+
 class StoreChoice(str, Enum):
     AWS = "AWS"
     AZURE = "AZURE"
@@ -27,7 +31,7 @@ class StoreChoice(str, Enum):
     SOPS = "SOPS"
 
 
-class CacheSettings(BaseModel):
+class CacheSettings(ModelSettings):
     enabled: bool = Field(default=True, description="Whether to enable caching")
     max_size: int = Field(
         default=2**12, description="Max cache size after which the least accessed elemets are dropped"
@@ -37,7 +41,7 @@ class CacheSettings(BaseModel):
     )
 
 
-class StoreSettings(BaseModel):
+class StoreSettings(ModelSettings):
     prefix: str = Field(default="", description="Prefix to prepend to all secret keys, specific to this store")
     suffix: str = Field(default="", description="Suffix to append to all secret keys, specific to this store")
     mapping: dict[str, str] = Field(
@@ -49,8 +53,8 @@ class StoreSettings(BaseModel):
 
 
 class AWSSettings(StoreSettings):
-    deletion_policy: Literal["force"] | Annotated[int, Field(ge=7, le=30)] = Field(
-        default=30, description="Deletion policy, either 'force' or an integer between 7-30."
+    deletion_policy: Literal["force"] | Annotated[int, Field(ge=7, le=30)] | None = Field(
+        default=None, description="Deletion policy, either 'force' or an integer between 7-30."
     )
 
 

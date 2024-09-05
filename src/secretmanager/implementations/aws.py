@@ -27,8 +27,10 @@ class AWSSecretStore(AbstractSecretStore[AWSSettings]):
         self._kms_key = kms_key
         self._deletion_policy = self._parse_deletion_policy(self.store_settings.deletion_policy)
 
-    def _parse_deletion_policy(self, deletion_policy: Literal["force"] | int):
-        if deletion_policy == "force":
+    def _parse_deletion_policy(self, deletion_policy: Literal["force"] | int | None):
+        if deletion_policy is None:
+            return {}
+        elif deletion_policy == "force":
             return {"ForceDeleteWithoutRecovery": True}
         elif isinstance(deletion_policy, int):
             if 7 < deletion_policy > 30:
@@ -89,5 +91,6 @@ class AWSSecretStore(AbstractSecretStore[AWSSettings]):
     def delete(self, key: str) -> None:
         client = self._get_client()
         logger.info("Deleting key %s from aws secretmanager", key)
-        client.delete_secret(SecretId=key, **self._deletion_policy)
+        kwargs = {} | self._deletion_policy
+        client.delete_secret(SecretId=key, **kwargs)
         self._drop_cache(key)
