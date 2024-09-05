@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from secretmanager.error import SecretAlreadyExists
+from secretmanager.error import SecretAlreadyExists, SecretNotFoundError
 from secretmanager.implementations.dotenv import DotEnvStore
 
 
@@ -16,7 +16,7 @@ def _store_factory(tmp_path: Path, populate: bool = False) -> Callable[[bool], D
         if populate:
             with file.open("w") as f:
                 f.write("KEY=VALUE")
-        return DotEnvStore(file=file, *args, **kwargs)
+        return DotEnvStore(file=file, *args, **kwargs).__deepcopy__()
 
     return wrapper
 
@@ -41,6 +41,19 @@ def test_missing_file(tmp_path):
         DotEnvStore(file=tmp_path)
 
 
+def test_getting_missing(empty_store_factory):
+    store = empty_store_factory()
+    with pytest.raises(SecretNotFoundError, match="was not found in"):
+        store.get(str(object().__hash__()))
+
+
+def test_getting(populated_store_factory):
+    store = populated_store_factory()
+    val = store.get("KEY")
+
+    assert val.get_secret_value() == "VALUE"
+
+
 def test_adding(empty_store_factory):
     store = empty_store_factory()
     store.add("KEY", "VALUE")
@@ -57,37 +70,24 @@ def test_adding_exists_error(populated_store_factory):
         store.add("KEY", "VALUE")
 
 
-def test_getting(populated_store_factory):
+def test_list_secret_keys(populated_store_factory):
     store = populated_store_factory()
-    val = store.get("KEY")
+    store.add("TEST", {"key": "value"})
+    secrets = store.list_secret_keys()
 
-    assert val.get_secret_value() == "VALUE"
-
-
-def test_cache(populated_store_factory):
-    store = populated_store_factory()
-    store.get("KEY")
-
-    # check cache
-    assert store._cache
-    assert "KEY" in store._cache
-    assert store._cache["KEY"] == "VALUE"
-
-
-def test_missing_cache(empty_store_factory):
-    store = empty_store_factory()
-    assert not store._cache
+    assert "KEY" in secrets
+    assert "TEST" in secrets
 
 
 def test_list_secrets(populated_store_factory):
     store = populated_store_factory()
-    store.add("TEST", "VALUE")
+    store.add("TEST", {"key": "value"})
     secrets = store.list_secrets()
 
     assert "KEY" in secrets
     assert secrets["KEY"].get_secret_value() == "VALUE"
     assert "TEST" in secrets
-    assert secrets["TEST"].get_secret_value() == "VALUE"
+    assert secrets["TEST"].get_secret_value() == {"key": "value"}
 
 
 def test_delete(populated_store_factory):

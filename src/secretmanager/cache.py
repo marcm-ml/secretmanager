@@ -33,7 +33,7 @@ class LRUCache(metaclass=Singleton):
         self.lock = threading.Lock()
         self.cache: OrderedDict[str, CacheEntry[str | None]] = OrderedDict()
         self.max_cache_size = max_size
-        self.refresh_period = expires_in
+        self.expires_in = expires_in
 
     def _hash_key(self, key: str) -> str:
         return hashlib.sha256((key).encode()).hexdigest()
@@ -45,7 +45,7 @@ class LRUCache(metaclass=Singleton):
 
             if hashed_key in self.cache:
                 entry = self.cache[hashed_key]
-                if current_time - entry.timestamp <= self.refresh_period:
+                if current_time - entry.timestamp <= self.expires_in:
                     logger.debug("Cache hit for key %s (%s)", key, hashed_key)
                     self.cache.move_to_end(hashed_key)  # update last_accessed
                     return entry.value

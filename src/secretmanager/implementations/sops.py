@@ -1,5 +1,3 @@
-import importlib
-import importlib.util
 import logging
 import re
 import shutil
@@ -12,13 +10,11 @@ from pydantic import JsonValue
 
 from secretmanager.error import SecretNotFoundError
 from secretmanager.settings import Settings, SopsSettings
-from secretmanager.store import AbstractSecretStore, SecretValue
+from secretmanager.store import AbstractSecretStore, SecretValue, StoreCapabilities
 
 logger = logging.getLogger(__name__)
 
 _sops = bool(shutil.which(Settings.sops.binary or "sops"))
-_yaml = bool(importlib.util.find_spec("yaml"))
-_dotenv = bool(importlib.util.find_spec("dotenv"))
 SUPPORTED_FORMAT_TYPE = Literal["json"] | Literal["yaml"] | Literal["dotenv"] | Literal["binary"]
 
 
@@ -33,8 +29,8 @@ def _get_sops_version(binary: str | Path):
 
 
 class SOPSSecretStore(AbstractSecretStore[SopsSettings]):
-    cacheable = True
-    store_settings = Settings.sops
+    capabilities = StoreCapabilities(cacheable=True, read=True, write=False)
+    settings = Settings.sops
 
     def __init__(self, file: str | Path | None, sops_options: list[str] | None = None) -> None:
         # check file
@@ -42,6 +38,10 @@ class SOPSSecretStore(AbstractSecretStore[SopsSettings]):
         if self._file is None:
             raise ValueError("No sops-encrypted file has been provided")
         self._file = Path(self._file).expanduser().resolve()
+        if not self._file.exists():
+            raise ValueError("%s does not exists", self._file)
+        if not self._file.is_file():
+            raise ValueError("%s is not a file", self._file)
 
         # check binary
         if not _sops:
@@ -51,13 +51,13 @@ class SOPSSecretStore(AbstractSecretStore[SopsSettings]):
             )
         self._binary = Settings.sops.binary or "sops"
         self._sops_version = _get_sops_version(self._binary)
-        if self._sops_version and 2 <= int(self._sops_version.split(".")[0]) > 3:
+        if self._sops_version and int(self._sops_version.split(".")[0]) != 3:
             raise ValueError(f"Sops version {self._sops_version} is not supported")
 
         # parse options and check
         self._options = sops_options or []
         self._options = [*self._options, *Settings.sops.options]
-        self._options = [o for o in self._options if o not in self._options]
+        self._options = [o for o in self._options if o in self._options]
 
         if "--in-place" in self._options or "-i" in self._options:
             raise ValueError("Inplace decryption is not supported")

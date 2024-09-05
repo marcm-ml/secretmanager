@@ -7,14 +7,14 @@ from botocore.exceptions import ClientError
 from pydantic import JsonValue
 
 from secretmanager.settings import AWSSettings, Settings
-from secretmanager.store import AbstractSecretStore, SecretValue
+from secretmanager.store import AbstractSecretStore, SecretValue, StoreCapabilities
 
 logger = logging.getLogger(__name__)
 
 
 class AWSSecretStore(AbstractSecretStore[AWSSettings]):
-    cacheable = True
-    store_settings = Settings.aws
+    capabilities = StoreCapabilities(cacheable=True, read=True, write=True)
+    settings = Settings.aws
 
     def __init__(
         self,
@@ -25,7 +25,7 @@ class AWSSecretStore(AbstractSecretStore[AWSSettings]):
         self._session_options = session_options or {}
         self._client_options = client_options or {}
         self._kms_key = kms_key
-        self._deletion_policy = self._parse_deletion_policy(self.store_settings.deletion_policy)
+        self._deletion_policy = self._parse_deletion_policy(self.settings.deletion_policy)
 
     def _parse_deletion_policy(self, deletion_policy: Literal["force"] | int | None):
         if deletion_policy is None:

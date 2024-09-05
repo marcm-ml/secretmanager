@@ -5,14 +5,14 @@ from pydantic import JsonValue
 
 from secretmanager.error import SecretAlreadyExists, SecretNotFoundError
 from secretmanager.settings import Settings, StoreSettings
-from secretmanager.store import AbstractSecretStore, SecretValue
+from secretmanager.store import AbstractSecretStore, SecretValue, StoreCapabilities
 
 logger = logging.getLogger(__name__)
 
 
 class EnvVarStore(AbstractSecretStore[StoreSettings]):
-    cacheable = True
-    store_settings = Settings.env
+    capabilities = StoreCapabilities(cacheable=True, read=True, write=True)
+    settings = Settings.env
 
     def get(self, key: str):
         if cached_value := self._get_cache(key):
@@ -41,10 +41,6 @@ class EnvVarStore(AbstractSecretStore[StoreSettings]):
     def list_secret_keys(self):
         logger.info("List all secrets keys in environment variable store")
         return set(os.environ.keys())
-
-    def list_secrets(self):
-        logger.info("List all secrets in environment variable store")
-        return {k: SecretValue(v) for k, v in os.environ.items()}
 
     def delete(self, key: str) -> None:
         logger.info("Deleting key %s from environment variable store", key)

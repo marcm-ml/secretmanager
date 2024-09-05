@@ -5,14 +5,15 @@ from pydantic import JsonValue
 
 from secretmanager.error import SecretAlreadyExists, SecretNotFoundError
 from secretmanager.settings import DotEnvSettings, Settings
-from secretmanager.store import AbstractSecretStore, SecretValue
+from secretmanager.store import AbstractSecretStore, SecretValue, StoreCapabilities
 
 logger = logging.getLogger(__name__)
 
 
 class DotEnvStore(AbstractSecretStore[DotEnvSettings]):
+    capabilities = StoreCapabilities(cacheable=True, read=True, write=True)
     cacheable = True
-    store_settings = Settings.dotenv
+    settings = Settings.dotenv
 
     def __init__(self, file: str | Path | None = None) -> None:
         try:
@@ -28,7 +29,7 @@ class DotEnvStore(AbstractSecretStore[DotEnvSettings]):
 
         self._client = dotenv
         self._dotenv = dotenv.main.DotEnv(_file, verbose=False, interpolate=False, override=False)
-        self._cache = self._dotenv.dict()
+        self._dotenv.dict()
         self._file = _file
 
     def get(self, key: str):
@@ -61,10 +62,6 @@ class DotEnvStore(AbstractSecretStore[DotEnvSettings]):
     def list_secret_keys(self):
         logger.info("List all secrets keys in dotenv store")
         return set(self._client.dotenv_values(self._file).keys())
-
-    def list_secrets(self):
-        logger.info("List all secrets in dotenv store")
-        return {k: SecretValue(v) for k, v in self._client.dotenv_values(self._file).items()}
 
     def delete(self, key: str) -> None:
         logger.info("Deleting %s from dotenv store at %s", key, self._file)

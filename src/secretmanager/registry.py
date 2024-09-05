@@ -1,13 +1,12 @@
 import types
 from collections.abc import Callable
 
+from secretmanager.implementations.aws import AWSSecretStore
+from secretmanager.implementations.dotenv import DotEnvStore
+from secretmanager.implementations.env import EnvVarStore
 from secretmanager.implementations.sops import SOPSSecretStore
-
-from .implementations.aws import AWSSecretStore
-from .implementations.dotenv import DotEnvStore
-from .implementations.env import EnvVarStore
-from .settings import StoreChoice
-from .store import AbstractSecretStore
+from secretmanager.settings import StoreChoice
+from secretmanager.store import AbstractSecretStore
 
 _registry: dict[str, Callable[..., AbstractSecretStore]] = {}
 registry = types.MappingProxyType(_registry)

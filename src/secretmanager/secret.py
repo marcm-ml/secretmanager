@@ -1,14 +1,13 @@
 import logging
 from typing import Any
 
-from .registry import get_store
-from .settings import Settings, StoreSettings
-from .store import AbstractSecretStore, SecretValue
+from secretmanager.registry import get_store
+from secretmanager.settings import Settings, StoreSettings
+from secretmanager.store import AbstractSecretStore, SecretValue
 
 logger = logging.getLogger(__name__)
 
 
-# TODO: individual secret settings?
 class Secret:
     """
     A class for retrieving secrets from different stores in the most convenient way
@@ -53,10 +52,10 @@ class Secret:
         store = store or self.store or get_store(Settings.default_store, **Settings.default_store_kwargs)
         self._last_used_store = store
 
-        if self._filter_key(store.store_settings):
+        if self._filter_key(store.settings):
             return None
 
-        self._get_mapped_key(store.store_settings)
+        self._get_mapped_key(store.settings)
 
         self.value = store.get(self._key)
 
@@ -69,9 +68,6 @@ class Secret:
             and self.value == other.value
             and self._last_used_store == other._last_used_store
         )
-
-    def __hash__(self) -> int:
-        return hash(self._key) + hash(self._last_used_store)
 
     def __str__(self) -> str:
         return f"Secret({self.key})"

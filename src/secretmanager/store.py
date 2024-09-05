@@ -1,11 +1,12 @@
 import logging
+from copy import copy
 from typing import Any, Protocol, TypeVar
 
-from pydantic import JsonValue, TypeAdapter, ValidationError
+from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from pydantic import Secret as PydanticSecret
 
-from .cache import CACHE
-from .settings import AWSSettings, DotEnvSettings, Settings, StoreSettings
+from secretmanager.cache import CACHE
+from secretmanager.settings import AWSSettings, DotEnvSettings, Settings, StoreSettings
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,14 @@ SecretValue = PydanticSecret[JsonValue]
 
 
 S = TypeVar("S", StoreSettings, AWSSettings, DotEnvSettings)
+
+
+class StoreCapabilities(BaseModel):
+    """Model to indicate store's capabilities such as caching, read, writing"""
+
+    cacheable: bool = False
+    read: bool = False
+    write: bool = False
 
 
 class AbstractSecretStore(Protocol[S]):
@@ -25,65 +34,40 @@ class AbstractSecretStore(Protocol[S]):
         cacheable: Indicates whether the secrets in the store is cached.
     """
 
-    cacheable: bool = False
-    store_settings: S = StoreSettings()
+    capabilities: StoreCapabilities = StoreCapabilities(cacheable=False, read=False, write=False)
+    settings: S = StoreSettings()
     # TODO: can we make this dynamic as such user can provide their own TypeAdapter?
     parser = TypeAdapter[JsonValue](JsonValue)
 
-    def get(self, key: str) -> SecretValue:
-        """
-        Retrieves the secret associated with the given key.
+    def get(self, key: str) -> SecretValue: ...
 
-        Args:
-            key: The key for the secret to retrieve.
-        """
-        ...
+    def add(self, key: Any, value: JsonValue) -> SecretValue: ...
 
-    def add(self, key: Any, value: JsonValue) -> SecretValue:
-        """
-        Adds a new secret to the store.
+    def update(self, key: Any, value: JsonValue) -> SecretValue: ...
 
-        If the secret exists, an error is raised.
-
-        Args:
-            key: The key for the secret to be added.
-            value: The value of the secret.
-        """
-        ...
-
-    def update(self, key: Any, value: JsonValue) -> SecretValue:
-        """
-        Updates an existing or adds a new secret in the store.
-
-        Args:
-            key: The key for the secret to be updated.
-            value: The new value of the secret.
-        """
-        ...
-
-    def list_secret_keys(self) -> set[str]:
-        """
-        Lists all secrets keys in the store.
-        """
-        ...
+    def list_secret_keys(self) -> set[str]: ...
 
     def list_secrets(self) -> dict[str, SecretValue]:
         """
         Lists all secrets in the store including their value.
         """
-        ...
+        return {k: self.get(k) for k in self.list_secret_keys()}
 
-    def delete(self, key: str) -> None:
-        """
-        Deletes the secret associated with the given key.
+    def delete(self, key: str) -> None: ...
 
-        Args:
-            key: The key for the secret to delete.
-        """
-        ...
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, self.__class__)
+            and self.capabilities == self.capabilities
+            and self.settings == other.settings
+            and self.parser == other.parser
+        )
 
-    def __hash__(self) -> int:
-        return hash(self.__class__.__name__)
+    def __deepcopy__(self, memo: dict[int, Any] | None = None):
+        cpy = copy(self)
+        cpy.settings = self.settings.__deepcopy__()
+        cpy.capabilities = self.capabilities.__deepcopy__()
+        return cpy
 
     def _serialize(self, value: JsonValue) -> str:
         return self.parser.dump_json(value).decode()
@@ -100,18 +84,18 @@ class AbstractSecretStore(Protocol[S]):
         # considered duplicated keys for same class name!?
         return f"{self.__class__.__name__}:{key}"
 
-    def _put_cache(self, key: str, value: str | None):
-        if self.cacheable and Settings.cache.enabled:
+    def _put_cache(self, key: str, value: str | None) -> None:
+        if self.capabilities.cacheable and Settings.cache.enabled:
             key = self._construct_key(key)
             value_json = value if value is not None else None
-            CACHE.put(key=key, value=value_json)
+            return CACHE.put(key=key, value=value_json)
 
     def _get_cache(self, key: str) -> str | None:
-        if self.cacheable and Settings.cache.enabled:
+        if self.capabilities.cacheable and Settings.cache.enabled:
             key = self._construct_key(key)
             return CACHE.get(key=key)
 
-    def _drop_cache(self, key: str) -> str | None:
-        if self.cacheable and Settings.cache.enabled:
+    def _drop_cache(self, key: str) -> None:
+        if self.capabilities.cacheable and Settings.cache.enabled:
             key = self._construct_key(key)
             return CACHE.remove(key=key)
