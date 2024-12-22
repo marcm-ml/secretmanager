@@ -9,7 +9,7 @@ from secretmanager.implementations.aws import AWSSecretStore
 
 
 @pytest.fixture
-def _aws_credentials(monkeypatch):
+def aws_credentials(monkeypatch):
     """Mocked AWS Credentials for moto."""
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
@@ -19,7 +19,7 @@ def _aws_credentials(monkeypatch):
 
 
 @pytest.fixture
-def _mocked_aws(aws_credentials):
+def mocked_aws(aws_credentials):
     with mock_aws():
         yield
 

@@ -4,7 +4,13 @@ authors = [{ name = "Marc", email = "mail@mail.com" }]
 readme = "README.md"
 requires-python = ">=3.9"
 dynamic = ["version"]
-dependencies = ["typer", "typing-extensions", "termcolor"]
+dependencies = [
+  "pydantic",
+  "pydantic-settings",
+  "typer",
+  "typing-extensions",
+  "termcolor",
+]
 description = "Interact with secrets from a variety of secret managers such as environment variables, dotenv-files, AWS SecretManager and many more"
 classifiers = [
   "Intended Audience :: Information Technology",
@@ -49,13 +55,11 @@ all = [
   "google-cloud-secret-manager",
   "bitwarden-sdk",
   "python-dotenv",
-  "pydantic",
-  "pydantic-settings",
 ]
 
 [tool.uv]
 index-url = "https://pypi.python.org/simple"
-dev-dependencies = ["pytest", "pytest-cov", "ruff", "ipykernel", "moto"]
+dev-dependencies = ["pytest", "pytest-cov", "ipykernel", "moto"]
 
 # linting
 [tool.ruff]
